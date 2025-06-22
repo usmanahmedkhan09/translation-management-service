@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Tag;
 use App\Models\Translation;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -11,9 +12,17 @@ class PerformanceTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected $user;
+    protected $authHeaders;
+
     protected function setUp(): void
     {
         parent::setUp();
+        
+        // Create authenticated user
+        $this->user = User::factory()->create();
+        $token = $this->user->createToken('test_token')->plainTextToken;
+        $this->authHeaders = ['Authorization' => 'Bearer ' . $token];
         
         // Create test data for performance testing
         $this->createPerformanceTestData();
@@ -38,7 +47,7 @@ class PerformanceTest extends TestCase
     {
         $startTime = microtime(true);
         
-        $response = $this->getJson('/api/translations?per_page=20');
+        $response = $this->withHeaders($this->authHeaders)->getJson('/api/translations?per_page=20');
         
         $endTime = microtime(true);
         $responseTime = ($endTime - $startTime) * 1000; // Convert to milliseconds
@@ -54,7 +63,7 @@ class PerformanceTest extends TestCase
         
         $startTime = microtime(true);
         
-        $response = $this->getJson("/api/search/translations?tags={$tag->name}&per_page=20");
+        $response = $this->withHeaders($this->authHeaders)->getJson("/api/search/translations?tags={$tag->name}&per_page=20");
         
         $endTime = microtime(true);
         $responseTime = ($endTime - $startTime) * 1000;
@@ -70,7 +79,7 @@ class PerformanceTest extends TestCase
         
         $startTime = microtime(true);
         
-        $response = $this->getJson("/api/translations/{$translation->id}");
+        $response = $this->withHeaders($this->authHeaders)->getJson("/api/translations/{$translation->id}");
         
         $endTime = microtime(true);
         $responseTime = ($endTime - $startTime) * 1000;
@@ -91,7 +100,7 @@ class PerformanceTest extends TestCase
         
         $startTime = microtime(true);
         
-        $response = $this->postJson('/api/translations', $data);
+        $response = $this->withHeaders($this->authHeaders)->postJson('/api/translations', $data);
         
         $endTime = microtime(true);
         $responseTime = ($endTime - $startTime) * 1000;
@@ -110,7 +119,7 @@ class PerformanceTest extends TestCase
         
         $startTime = microtime(true);
         
-        $response = $this->putJson("/api/translations/{$translation->id}", $data);
+        $response = $this->withHeaders($this->authHeaders)->putJson("/api/translations/{$translation->id}", $data);
         
         $endTime = microtime(true);
         $responseTime = ($endTime - $startTime) * 1000;
@@ -124,7 +133,7 @@ class PerformanceTest extends TestCase
     {
         $startTime = microtime(true);
         
-        $response = $this->getJson('/api/translations/export?locale=en');
+        $response = $this->withHeaders($this->authHeaders)->getJson('/api/translations/export?locale=en');
         
         $endTime = microtime(true);
         $responseTime = ($endTime - $startTime) * 1000;
@@ -138,7 +147,7 @@ class PerformanceTest extends TestCase
     {
         $startTime = microtime(true);
         
-        $response = $this->getJson('/api/translations/locales');
+        $response = $this->withHeaders($this->authHeaders)->getJson('/api/translations/locales');
         
         $endTime = microtime(true);
         $responseTime = ($endTime - $startTime) * 1000;
@@ -152,7 +161,7 @@ class PerformanceTest extends TestCase
     {
         $startTime = microtime(true);
         
-        $response = $this->getJson('/api/translations/tags');
+        $response = $this->withHeaders($this->authHeaders)->getJson('/api/translations/tags');
         
         $endTime = microtime(true);
         $responseTime = ($endTime - $startTime) * 1000;
@@ -171,7 +180,7 @@ class PerformanceTest extends TestCase
         for ($i = 0; $i < 5; $i++) {
             $startTime = microtime(true);
             
-            $response = $this->getJson('/api/translations?per_page=10');
+            $response = $this->withHeaders($this->authHeaders)->getJson('/api/translations?per_page=10');
             
             $endTime = microtime(true);
             $responseTime = ($endTime - $startTime) * 1000;

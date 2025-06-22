@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Tag;
 use App\Models\Translation;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Illuminate\Support\Facades\Cache;
@@ -15,10 +16,17 @@ class TranslationApiTest extends TestCase
 
     protected $tags;
     protected $translations;
+    protected $user;
+    protected $authHeaders;
 
     protected function setUp(): void
     {
         parent::setUp();
+        
+        // Create authenticated user
+        $this->user = User::factory()->create();
+        $token = $this->user->createToken('test_token')->plainTextToken;
+        $this->authHeaders = ['Authorization' => 'Bearer ' . $token];
         
         // Create test data
         $this->createTestData();
@@ -41,10 +49,19 @@ class TranslationApiTest extends TestCase
         });
     }
 
+    /**
+     * Helper method to make authenticated API calls
+     */
+    protected function authenticatedJson($method, $uri, array $data = [], array $headers = [])
+    {
+        $headers = array_merge($this->authHeaders, $headers);
+        return $this->json($method, $uri, $data, $headers);
+    }
+
     /** @test */
     public function can_get_all_translations()
     {
-        $response = $this->getJson('/api/translations');
+        $response = $this->authenticatedJson('GET', '/api/translations');
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -70,7 +87,7 @@ class TranslationApiTest extends TestCase
     {
         $translation = Translation::first();
 
-        $response = $this->getJson("/api/translations/{$translation->id}");
+        $response = $this->authenticatedJson('GET', "/api/translations/{$translation->id}");
 
         $response->assertStatus(200)
             ->assertJson([
@@ -90,7 +107,7 @@ class TranslationApiTest extends TestCase
             'locale' => 'en'
         ];
 
-        $response = $this->postJson('/api/translations', $data);
+        $response = $this->authenticatedJson('POST', '/api/translations', $data);
 
         $response->assertStatus(201)
             ->assertJson([
@@ -112,7 +129,7 @@ class TranslationApiTest extends TestCase
             'tags' => ['test-tag-unique']
         ];
 
-        $response = $this->postJson('/api/translations', $data);
+        $response = $this->authenticatedJson('POST', '/api/translations', $data);
 
         $response->assertStatus(201)
             ->assertJson([
@@ -130,7 +147,7 @@ class TranslationApiTest extends TestCase
     /** @test */
     public function validates_required_fields()
     {
-        $response = $this->postJson('/api/translations', []);
+        $response = $this->authenticatedJson('POST', '/api/translations', []);
 
         $response->assertStatus(422)
             ->assertJsonValidationErrors(['key', 'value', 'locale']);
@@ -147,7 +164,7 @@ class TranslationApiTest extends TestCase
             'locale' => $translation->locale
         ];
 
-        $response = $this->postJson('/api/translations', $data);
+        $response = $this->authenticatedJson('POST', '/api/translations', $data);
 
         $response->assertStatus(409)
             ->assertJson(['error' => 'Translation with this key and locale already exists']);
@@ -163,7 +180,7 @@ class TranslationApiTest extends TestCase
             'locale' => 'fr'
         ];
 
-        $response = $this->putJson("/api/translations/{$translation->id}", $data);
+        $response = $this->authenticatedJson('PUT', "/api/translations/{$translation->id}", $data);
 
         $response->assertStatus(200)
             ->assertJson([
@@ -176,7 +193,7 @@ class TranslationApiTest extends TestCase
     /** @test */
     public function returns_404_for_nonexistent_translation()
     {
-        $response = $this->getJson('/api/translations/999999');
+        $response = $this->authenticatedJson('GET', '/api/translations/999999');
 
         $response->assertStatus(404)
             ->assertJson(['error' => 'Translation not found']);
@@ -187,7 +204,7 @@ class TranslationApiTest extends TestCase
     {
         $translation = Translation::first();
 
-        $response = $this->deleteJson("/api/translations/{$translation->id}");
+        $response = $this->authenticatedJson('DELETE', "/api/translations/{$translation->id}");
 
         $response->assertStatus(200)
             ->assertJson(['message' => 'Translation deleted successfully']);
@@ -201,7 +218,7 @@ class TranslationApiTest extends TestCase
         $translation = Translation::first();
         $searchKey = substr($translation->key, 0, 5);
 
-        $response = $this->getJson("/api/translations?key={$searchKey}");
+        $response = $this->authenticatedJson('GET', "/api/translations?key={$searchKey}");
 
         $response->assertStatus(200);
         
@@ -219,7 +236,7 @@ class TranslationApiTest extends TestCase
         $translation = Translation::first();
         $searchContent = trim(substr($translation->value, 0, 5));
 
-        $response = $this->getJson("/api/translations?content=" . urlencode($searchContent));
+        $response = $this->authenticatedJson('GET', "/api/translations?content=" . urlencode($searchContent));
 
         $response->assertStatus(200);
         
@@ -232,7 +249,7 @@ class TranslationApiTest extends TestCase
     {
         $locale = Translation::first()->locale;
 
-        $response = $this->getJson("/api/translations?locale={$locale}");
+        $response = $this->authenticatedJson('GET', "/api/translations?locale={$locale}");
 
         $response->assertStatus(200);
         
@@ -247,7 +264,7 @@ class TranslationApiTest extends TestCase
     {
         $tag = $this->tags->first();
 
-        $response = $this->getJson("/api/translations?tags[]={$tag->name}");
+        $response = $this->authenticatedJson('GET', "/api/translations?tags[]={$tag->name}");
 
         $response->assertStatus(200);
         
@@ -260,7 +277,7 @@ class TranslationApiTest extends TestCase
     {
         $locale = Translation::first()->locale;
 
-        $response = $this->getJson("/api/translations/export?locale={$locale}");
+        $response = $this->authenticatedJson('GET', "/api/translations/export?locale={$locale}");
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -278,7 +295,7 @@ class TranslationApiTest extends TestCase
     /** @test */
     public function can_get_available_locales()
     {
-        $response = $this->getJson('/api/translations/locales');
+        $response = $this->authenticatedJson('GET', '/api/translations/locales');
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -293,7 +310,7 @@ class TranslationApiTest extends TestCase
     /** @test */
     public function can_get_available_tags()
     {
-        $response = $this->getJson('/api/translations/tags');
+        $response = $this->authenticatedJson('GET', '/api/translations/tags');
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -309,11 +326,11 @@ class TranslationApiTest extends TestCase
     public function cache_is_cleared_when_translation_is_created()
     {
         // First request to populate cache
-        $response = $this->getJson('/api/translations');
+        $response = $this->authenticatedJson('GET', '/api/translations');
         $initialTotal = $response->json('total');
 
         // Create new translation
-        $createResponse = $this->postJson('/api/translations', [
+        $createResponse = $this->authenticatedJson('POST', '/api/translations', [
             'key' => 'cache.test.unique',
             'value' => 'Cache Test',
             'locale' => 'en'
@@ -322,13 +339,13 @@ class TranslationApiTest extends TestCase
         $createResponse->assertStatus(201);
 
         // New request should include the new translation
-        $response = $this->getJson('/api/translations');
+        $response = $this->authenticatedJson('GET', '/api/translations');
         $newTotal = $response->json('total');
         
         $this->assertGreaterThan($initialTotal, $newTotal);
         
         // Verify the new translation is actually there by searching for it
-        $searchResponse = $this->getJson('/api/translations?key=cache.test.unique');
+        $searchResponse = $this->authenticatedJson('GET', '/api/translations?key=cache.test.unique');
         $searchData = $searchResponse->json('data');
         $this->assertNotEmpty($searchData);
         $this->assertEquals('cache.test.unique', $searchData[0]['key']);
@@ -340,7 +357,7 @@ class TranslationApiTest extends TestCase
         // Create additional translations
         Translation::factory()->count(100)->create();
 
-        $response = $this->getJson('/api/translations?per_page=50');
+        $response = $this->authenticatedJson('GET', '/api/translations?per_page=50');
 
         $response->assertStatus(200)
             ->assertJsonStructure([
@@ -358,7 +375,7 @@ class TranslationApiTest extends TestCase
     /** @test */
     public function respects_per_page_limit()
     {
-        $response = $this->getJson('/api/translations?per_page=200');
+        $response = $this->authenticatedJson('GET', '/api/translations?per_page=200');
 
         $response->assertStatus(200);
         
@@ -373,7 +390,7 @@ class TranslationApiTest extends TestCase
         
         // Simulate concurrent requests
         for ($i = 0; $i < 5; $i++) {
-            $promises[] = $this->getJson('/api/translations');
+            $promises[] = $this->authenticatedJson('GET', '/api/translations');
         }
 
         foreach ($promises as $response) {
